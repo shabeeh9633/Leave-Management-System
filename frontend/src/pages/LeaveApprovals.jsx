@@ -11,11 +11,18 @@ const LeaveApprovals = () => {
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
 
+  const isManager = user?.role === 'MANAGER';
+  const isHR = user?.role === 'HR';
+
   const fetchLeaves = async () => {
     setLoading(true);
     try {
       const res = await api.get('/leave-requests/');
-      setLeaves(res.data);
+      // Filter for Manager on frontend as well to guarantee no other requests are displayed
+      const displayLeaves = isManager
+        ? res.data.filter((l) => l.needs_manager_approval === true)
+        : res.data;
+      setLeaves(displayLeaves);
       setError(null);
     } catch (err) {
       setError('Failed to load leave requests.');
@@ -26,7 +33,7 @@ const LeaveApprovals = () => {
 
   useEffect(() => {
     fetchLeaves();
-  }, []);
+  }, [user?.role]);
 
   const handleApprove = async (id) => {
     setMessage(null);
@@ -51,9 +58,6 @@ const LeaveApprovals = () => {
       setError(err.response?.data?.detail || 'Failed to reject leave request.');
     }
   };
-
-  const isManager = user?.role === 'MANAGER';
-  const isHR = user?.role === 'HR';
 
   const pendingCount = leaves.filter((l) => l.status === 'PENDING').length;
 
@@ -136,7 +140,7 @@ const LeaveApprovals = () => {
                   </td>
                   <td>
                     <div className="btn-group">
-                      {/* MANAGER: ONLY Approve & Reject for PENDING requests */}
+                      {/* MANAGER: ONLY Approve & Reject for PENDING requests requiring approval */}
                       {isManager && l.status === 'PENDING' && (
                         <>
                           <button
@@ -179,7 +183,7 @@ const LeaveApprovals = () => {
                         </>
                       )}
                       {isHR && l.status === 'CANCELLED' && (
-                        <span className="text-muted">Cancelled (Terminal)</span>
+                        <span className="text-muted">Cancelled</span>
                       )}
                     </div>
                   </td>
