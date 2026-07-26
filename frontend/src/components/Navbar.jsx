@@ -18,26 +18,40 @@ const Navbar = () => {
           <NavLink to="/">Leave Management</NavLink>
         </div>
         <div className="navbar-links">
-          <NavLink to="/" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
+          <NavLink to="/" end className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
             Dashboard
           </NavLink>
-          <NavLink to="/leaves" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
-            Leaves
-          </NavLink>
+
+          {/* Only EMPLOYEE can access Leave Application */}
+          {user?.role === 'EMPLOYEE' && (
+            <NavLink to="/leaves" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
+              My Leaves
+            </NavLink>
+          )}
+
+          {/* Manager sees their approval queue */}
+          {user?.role === 'MANAGER' && (
+            <NavLink to="/approvals" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
+              Leave Approvals
+            </NavLink>
+          )}
+
+          {/* HR sees all leave requests */}
           {user?.role === 'HR' && (
             <>
+              <NavLink to="/approvals" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
+                All Leaves
+              </NavLink>
               <NavLink to="/hr/users" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
                 User Management
               </NavLink>
               <NavLink to="/hr/settings" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
                 Types & Holidays
               </NavLink>
+              <NavLink to="/salary" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
+                Salary Calculation
+              </NavLink>
             </>
-          )}
-          {(user?.role === 'HR' || user?.role === 'MANAGER') && (
-            <NavLink to="/salary" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
-              Salary Calculation
-            </NavLink>
           )}
         </div>
         <div className="navbar-user">

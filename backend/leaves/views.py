@@ -2,14 +2,15 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils import timezone
-from datetime import datetime
 
 from .models import LeaveType, PublicHoliday, LeaveRequest
 from .serializers import LeaveTypeSerializer, PublicHolidaySerializer, LeaveRequestSerializer
-from .services import calculate_working_days, evaluate_approval_rules
+from .services import calculate_working_days, requires_manager_approval
 from users.permissions import IsHR, IsManager, IsHRorManager
 
+
 class IsHROrReadOnly(permissions.BasePermission):
+    """HR can write; any authenticated user can read."""
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
@@ -17,34 +18,55 @@ class IsHROrReadOnly(permissions.BasePermission):
             return True
         return request.user.role == 'HR'
 
+
 class LeaveTypeViewSet(viewsets.ModelViewSet):
     queryset = LeaveType.objects.all().order_by('id')
     serializer_class = LeaveTypeSerializer
     permission_classes = [IsHROrReadOnly]
+
 
 class PublicHolidayViewSet(viewsets.ModelViewSet):
     queryset = PublicHoliday.objects.all().order_by('date')
     serializer_class = PublicHolidaySerializer
     permission_classes = [IsHROrReadOnly]
 
+
 class LeaveRequestViewSet(viewsets.ModelViewSet):
     serializer_class = LeaveRequestSerializer
     permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ['get', 'post', 'head', 'options']  # no PUT/PATCH/DELETE on leave requests
 
     def get_queryset(self):
         user = self.request.user
+
         if user.role == 'HR':
-            return LeaveRequest.objects.all()
+            # HR sees ALL leave requests
+            return LeaveRequest.objects.all().order_by('-applied_at')
+
         elif user.role == 'MANAGER':
-            # Manager sees own leaves and leaves submitted by employees
-            return LeaveRequest.objects.all()
+            # Manager sees ONLY requests that required Manager approval
+            # i.e. requests currently PENDING that satisfy the approval rules.
+            # We filter by status PENDING (these are the ones awaiting manager action)
+            # and only those that are in PENDING state (i.e. required approval).
+            # Already-approved/rejected ones are also shown for reference.
+            return LeaveRequest.objects.filter(
+                needs_manager_approval=True
+            ).order_by('-applied_at')
+
         # Employee sees only their own leaves
-        return LeaveRequest.objects.filter(employee=user)
+        return LeaveRequest.objects.filter(employee=user).order_by('-applied_at')
 
     def create(self, request, *args, **kwargs):
+        # Only EMPLOYEE role can submit leave applications
+        if request.user.role != 'EMPLOYEE':
+            return Response(
+                {'detail': 'Only employees can submit leave requests.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         start_date = serializer.validated_data['start_date']
         end_date = serializer.validated_data['end_date']
 
@@ -55,12 +77,18 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
             )
 
         working_days = calculate_working_days(start_date, end_date)
-        initial_status = evaluate_approval_rules(request.user, working_days)
+        needs_approval = requires_manager_approval(request.user, working_days)
+
+        if needs_approval:
+            initial_status = LeaveRequest.Status.PENDING
+        else:
+            initial_status = LeaveRequest.Status.APPROVED
 
         leave_request = serializer.save(
             employee=request.user,
             working_days=working_days,
-            status=initial_status
+            status=initial_status,
+            needs_manager_approval=needs_approval,
         )
 
         return Response(
@@ -71,9 +99,9 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
         leave = self.get_object()
-        
-        # Check permissions: only owner employee or HR can cancel pending leave
-        if leave.employee != request.user and request.user.role != 'HR':
+
+        # Only the owner employee can cancel their own pending leave
+        if leave.employee != request.user and request.user.role not in ['HR']:
             return Response(
                 {'detail': 'You do not have permission to cancel this leave.'},
                 status=status.HTTP_403_FORBIDDEN
@@ -100,7 +128,13 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
 
         leave = self.get_object()
 
-        # Valid state transitions check
+        # Managers can only act on requests that require manager approval
+        if user.role == 'MANAGER' and not leave.needs_manager_approval:
+            return Response(
+                {'detail': 'This leave request does not require Manager approval.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         if leave.status == LeaveRequest.Status.CANCELLED:
             return Response(
                 {'detail': 'Cannot approve a cancelled leave request.'},
@@ -113,7 +147,6 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # HR can approve pending or override rejected
         leave.status = LeaveRequest.Status.APPROVED
         leave.reviewed_by = user
         leave.reviewed_at = timezone.now()
@@ -130,6 +163,13 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
             )
 
         leave = self.get_object()
+
+        # Managers can only act on requests that require manager approval
+        if user.role == 'MANAGER' and not leave.needs_manager_approval:
+            return Response(
+                {'detail': 'This leave request does not require Manager approval.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         if leave.status == LeaveRequest.Status.CANCELLED:
             return Response(

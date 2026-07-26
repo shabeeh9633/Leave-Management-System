@@ -5,7 +5,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import LeaveManagement from './pages/LeaveManagement';
+import EmployeeLeaves from './pages/EmployeeLeaves';
+import LeaveApprovals from './pages/LeaveApprovals';
 import UserManagement from './pages/UserManagement';
 import LeaveTypesAndHolidays from './pages/LeaveTypesAndHolidays';
 import SalaryCalculation from './pages/SalaryCalculation';
@@ -17,24 +18,29 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
 
-          {/* Authenticated Routes */}
+          {/* All authenticated users see Dashboard */}
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/leaves" element={<LeaveManagement />} />
           </Route>
 
-          {/* HR Only Routes */}
+          {/* EMPLOYEE only: apply leave + view own leaves */}
+          <Route element={<ProtectedRoute allowedRoles={['EMPLOYEE']} />}>
+            <Route path="/leaves" element={<EmployeeLeaves />} />
+          </Route>
+
+          {/* MANAGER and HR: leave approvals/workflow */}
+          <Route element={<ProtectedRoute allowedRoles={['MANAGER', 'HR']} />}>
+            <Route path="/approvals" element={<LeaveApprovals />} />
+          </Route>
+
+          {/* HR only: user management + leave types + holidays + salary */}
           <Route element={<ProtectedRoute allowedRoles={['HR']} />}>
             <Route path="/hr/users" element={<UserManagement />} />
             <Route path="/hr/settings" element={<LeaveTypesAndHolidays />} />
-          </Route>
-
-          {/* Manager & HR Routes */}
-          <Route element={<ProtectedRoute allowedRoles={['HR', 'MANAGER']} />}>
             <Route path="/salary" element={<SalaryCalculation />} />
           </Route>
 
-          {/* Catch-all route */}
+          {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>

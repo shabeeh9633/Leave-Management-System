@@ -9,13 +9,13 @@ def calculate_working_days(start_date: date, end_date: date) -> int:
     """
     if start_date > end_date:
         return 0
-    
+
     holidays = set(
         PublicHoliday.objects.filter(
             date__range=(start_date, end_date)
         ).values_list('date', flat=True)
     )
-    
+
     current = start_date
     working_days = 0
     while current <= end_date:
@@ -23,20 +23,23 @@ def calculate_working_days(start_date: date, end_date: date) -> int:
         if current.weekday() < 5 and current not in holidays:
             working_days += 1
         current += timedelta(days=1)
-        
+
     return working_days
 
-def evaluate_approval_rules(employee, working_days: int) -> str:
+
+def requires_manager_approval(employee, working_days: int) -> bool:
     """
-    Evaluates exact approval rules:
+    Returns True if the leave request requires Manager approval.
+
     Rule 1: Continuous leave exceeding 2 working days requires Manager approval.
-    Rule 2: The 3rd and every subsequent leave request submitted by employee
+    Rule 2: The 3rd and every subsequent leave request submitted by the employee
             within the same calendar month requires Manager approval.
-    Otherwise: Leave is directly approved.
+
+    Otherwise: Does NOT require Manager approval (will be auto-approved).
     """
     # Rule 1: Exceeding 2 working days
     if working_days > 2:
-        return LeaveRequest.Status.PENDING
+        return True
 
     # Rule 2: 3rd and subsequent requests in same calendar month
     today = timezone.now().date()
@@ -46,10 +49,9 @@ def evaluate_approval_rules(employee, working_days: int) -> str:
         applied_at__month=today.month
     ).count()
 
-    # Note: requests_this_month_count represents already submitted requests before this new one.
-    # If 2 or more requests have already been submitted, this new one is the 3rd or later.
+    # requests_this_month_count is the count of already submitted requests.
+    # If >= 2 already exist, this new one is the 3rd or later.
     if requests_this_month_count >= 2:
-        return LeaveRequest.Status.PENDING
+        return True
 
-    # Otherwise directly approved
-    return LeaveRequest.Status.APPROVED
+    return False

@@ -3,8 +3,8 @@ import api from '../api/axios';
 import Layout from '../components/Layout';
 
 const SalaryCalculation = () => {
-  const [users, setUsers] = useState([]);
-  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [employees, setEmployees] = useState([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(true);
 
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [year, setYear] = useState(new Date().getFullYear());
@@ -13,51 +13,6 @@ const SalaryCalculation = () => {
   const [result, setResult] = useState(null);
   const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState(null);
-
-  useEffect(() => {
-    const fetchUsers = async () => {
-      setLoadingUsers(true);
-      try {
-        const res = await api.get('/users/');
-        setUsers(res.data);
-        if (res.data.length > 0) {
-          setSelectedEmployeeId(res.data[0].id);
-        }
-      } catch (err) {
-        setError('Failed to fetch employee list.');
-      } finally {
-        setLoadingUsers(false);
-      }
-    };
-    fetchUsers();
-  }, []);
-
-  const handleCalculate = async (e) => {
-    e.preventDefault();
-    if (!selectedEmployeeId || !year || !month) {
-      setError('Please select employee, year, and month.');
-      return;
-    }
-
-    setCalculating(true);
-    setError(null);
-    setResult(null);
-
-    try {
-      const res = await api.get('/salary/calculate/', {
-        params: {
-          employee_id: selectedEmployeeId,
-          year: parseInt(year),
-          month: parseInt(month),
-        },
-      });
-      setResult(res.data);
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to calculate salary.');
-    } finally {
-      setCalculating(false);
-    }
-  };
 
   const monthsList = [
     { value: 1, name: 'January' },
@@ -74,12 +29,60 @@ const SalaryCalculation = () => {
     { value: 12, name: 'December' },
   ];
 
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      setLoadingEmployees(true);
+      try {
+        const res = await api.get('/users/');
+        // Show all users (HR may need to calculate for any role)
+        setEmployees(res.data);
+        if (res.data.length > 0) {
+          setSelectedEmployeeId(res.data[0].id);
+        }
+      } catch (err) {
+        setError('Failed to load employee list.');
+      } finally {
+        setLoadingEmployees(false);
+      }
+    };
+    fetchEmployees();
+  }, []);
+
+  const handleCalculate = async (e) => {
+    e.preventDefault();
+    if (!selectedEmployeeId || !year || !month) {
+      setError('Please select employee, year, and month.');
+      return;
+    }
+    setCalculating(true);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await api.get('/salary/calculate/', {
+        params: {
+          employee_id: selectedEmployeeId,
+          year: parseInt(year),
+          month: parseInt(month),
+        },
+      });
+      setResult(res.data);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to calculate salary.');
+    } finally {
+      setCalculating(false);
+    }
+  };
+
+  const selectedMonthName = monthsList.find((m) => m.value === result?.month)?.name || '';
+
   return (
     <Layout>
       <div className="page-header">
         <div>
           <h2>Monthly Salary Calculation</h2>
-          <p className="subtitle">Compute payable days and final monthly salary using approved leave records</p>
+          <p className="subtitle">
+            Compute payable days and final salary using approved leave records
+          </p>
         </div>
       </div>
 
@@ -87,21 +90,22 @@ const SalaryCalculation = () => {
 
       <div className="card max-w-700">
         <h3>Calculation Parameters</h3>
-        {loadingUsers ? (
-          <p className="p-4">Loading employee list...</p>
+        {loadingEmployees ? (
+          <p className="p-4">Loading employees...</p>
         ) : (
           <form onSubmit={handleCalculate} className="mt-3">
             <div className="form-group">
               <label>Select Employee</label>
               <select
+                id="salary-employee-select"
                 className="form-control"
                 value={selectedEmployeeId}
                 onChange={(e) => setSelectedEmployeeId(e.target.value)}
                 required
               >
-                {users.map((u) => (
+                {employees.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.username} ({u.first_name} {u.last_name}) - {u.role} [${u.monthly_salary}/mo]
+                    {u.username} — {u.first_name} {u.last_name} ({u.role})
                   </option>
                 ))}
               </select>
@@ -111,6 +115,7 @@ const SalaryCalculation = () => {
               <div className="form-group col">
                 <label>Month</label>
                 <select
+                  id="salary-month-select"
                   className="form-control"
                   value={month}
                   onChange={(e) => setMonth(parseInt(e.target.value))}
@@ -122,10 +127,10 @@ const SalaryCalculation = () => {
                   ))}
                 </select>
               </div>
-
               <div className="form-group col">
                 <label>Year</label>
                 <input
+                  id="salary-year-input"
                   type="number"
                   className="form-control"
                   value={year}
@@ -137,7 +142,12 @@ const SalaryCalculation = () => {
               </div>
             </div>
 
-            <button type="submit" className="btn btn-primary btn-block mt-3" disabled={calculating}>
+            <button
+              id="calculate-salary-btn"
+              type="submit"
+              className="btn btn-primary btn-block mt-3"
+              disabled={calculating}
+            >
               {calculating ? 'Calculating...' : 'Calculate Monthly Salary'}
             </button>
           </form>
@@ -147,23 +157,25 @@ const SalaryCalculation = () => {
       {result && (
         <div className="card max-w-700 mt-4 border-highlight">
           <div className="result-header">
-            <h3>Salary Calculation Summary</h3>
-            <span className="result-tag">{result.employee_name} ({monthsList.find((m) => m.value === result.month)?.name} {result.year})</span>
+            <h3>Salary Calculation Result</h3>
+            <span className="result-tag">
+              {result.employee_name} — {selectedMonthName} {result.year}
+            </span>
           </div>
 
           <div className="result-grid">
             <div className="result-item">
               <span className="result-label">Base Monthly Salary</span>
-              <strong className="result-value">${result.base_monthly_salary.toFixed(2)}</strong>
+              <strong className="result-value">{Number(result.base_monthly_salary).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
             </div>
 
             <div className="result-item">
-              <span className="result-label">Total Working Days (Mon-Fri)</span>
+              <span className="result-label">Total Working Days (Mon–Fri)</span>
               <strong className="result-value">{result.total_working_days} days</strong>
             </div>
 
             <div className="result-item">
-              <span className="result-label">Public Holidays (Mon-Fri)</span>
+              <span className="result-label">Public Holidays (on working days)</span>
               <strong className="result-value text-info">{result.public_holidays} days</strong>
             </div>
 
@@ -183,19 +195,21 @@ const SalaryCalculation = () => {
             </div>
 
             <div className="result-item">
-              <span className="result-label">Calculated Payable Days</span>
+              <span className="result-label">Payable Days</span>
               <strong className="result-value highlight">{result.payable_days} days</strong>
             </div>
 
             <div className="result-item">
-              <span className="result-label">Effective Daily Rate</span>
-              <strong className="result-value">${result.daily_rate.toFixed(2)} / day</strong>
+              <span className="result-label">Daily Rate</span>
+              <strong className="result-value">{Number(result.daily_rate).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / day</strong>
             </div>
           </div>
 
           <div className="final-salary-banner mt-4">
-            <span>Final Salary Payable:</span>
-            <span className="final-amount">${result.final_salary_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            <span>Final Salary Payable</span>
+            <span className="final-amount">
+              {Number(result.final_salary_amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
           </div>
         </div>
       )}

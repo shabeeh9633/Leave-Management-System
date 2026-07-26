@@ -46,6 +46,8 @@ class LeaveRequest(models.Model):
     end_date = models.DateField()
     reason = models.TextField()
     working_days = models.IntegerField(default=0)
+    # Tracks whether this request required Manager approval per the rules
+    needs_manager_approval = models.BooleanField(default=False)
     status = models.CharField(
         max_length=20,
         choices=Status.choices,
