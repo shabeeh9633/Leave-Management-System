@@ -40,7 +40,7 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         if user.role == 'HR':
-            # HR sees ALL leave requests across the system
+            # HR sees EVERY leave request, regardless of status or manager approval requirement
             return LeaveRequest.objects.all().order_by('-applied_at')
 
         elif user.role == 'MANAGER':
@@ -76,10 +76,8 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
         working_days = calculate_working_days(start_date, end_date)
         needs_approval = requires_manager_approval(request.user, working_days)
 
-        if needs_approval:
-            initial_status = LeaveRequest.Status.PENDING
-        else:
-            initial_status = LeaveRequest.Status.APPROVED
+        # Every leave request starts in PENDING status. No automatic approval.
+        initial_status = LeaveRequest.Status.PENDING
 
         leave_request = serializer.save(
             employee=request.user,

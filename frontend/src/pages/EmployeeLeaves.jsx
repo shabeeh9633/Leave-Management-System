@@ -95,11 +95,8 @@ const EmployeeLeaves = () => {
         reason: reason.trim(),
       });
       const applied = response.data;
-      const statusMsg = applied.needs_manager_approval
-        ? 'Submitted for Manager approval (PENDING).'
-        : 'Automatically approved.';
       setMessage(
-        `Leave request submitted. Duration: ${applied.working_days} working day(s). Status: ${applied.status}. ${statusMsg}`
+        `Leave request submitted successfully. Duration: ${applied.working_days} working day(s). Current Status: PENDING.`
       );
       setStartDate('');
       setEndDate('');
@@ -130,7 +127,7 @@ const EmployeeLeaves = () => {
       <div className="page-header">
         <div>
           <h2>My Leaves</h2>
-          <p className="subtitle">Apply for leave and track your requests</p>
+          <p className="subtitle">Apply for leave and track your request status</p>
         </div>
       </div>
 
@@ -247,7 +244,7 @@ const EmployeeLeaves = () => {
                   <th>End Date</th>
                   <th>Working Days</th>
                   <th>Status</th>
-                  <th>Approval Required</th>
+                  <th>Approval Route</th>
                   <th>Reason</th>
                   <th>Applied On</th>
                   <th>Action</th>
@@ -269,7 +266,7 @@ const EmployeeLeaves = () => {
                     <td>
                       {l.needs_manager_approval
                         ? <span className="status-pill status-pending">Manager Review</span>
-                        : <span className="status-pill status-approved">Auto</span>
+                        : <span className="status-pill active">HR Direct</span>
                       }
                     </td>
                     <td>{l.reason}</td>
