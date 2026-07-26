@@ -6,29 +6,36 @@ from salary.services import calculate_monthly_salary
 
 User = get_user_model()
 
+
 class SalaryCalculationTestCase(TestCase):
     def setUp(self):
-        self.employee = User.objects.create_user(
+        self.employee, _ = User.objects.get_or_create(
             username='sal_emp',
-            password='password123',
-            role='EMPLOYEE',
-            monthly_salary=5000.00
+            defaults={
+                'password': 'password123',
+                'role': 'EMPLOYEE',
+                'monthly_salary': 5000.00
+            }
         )
-        self.unpaid_leave_type = LeaveType.objects.create(
-            name='Unpaid Leave',
-            code='unpaid',
-            is_paid=False
+        self.unpaid_leave_type, _ = LeaveType.objects.get_or_create(
+            name='Loss Of Pay',
+            defaults={
+                'code': 'loss_of_pay',
+                'is_paid': False
+            }
         )
-        self.paid_leave_type = LeaveType.objects.create(
+        self.paid_leave_type, _ = LeaveType.objects.get_or_create(
             name='Annual Leave',
-            code='annual',
-            is_paid=True
+            defaults={
+                'code': 'annual_leave',
+                'is_paid': True
+            }
         )
 
         # Public holiday in July 2026 (July 3rd Fri)
-        PublicHoliday.objects.create(
-            name='Independence Holiday',
-            date=date(2026, 7, 3)
+        PublicHoliday.objects.get_or_create(
+            date=date(2026, 7, 3),
+            defaults={'name': 'Independence Holiday'}
         )
 
     def test_salary_calculation_with_leaves(self):
@@ -66,7 +73,7 @@ class SalaryCalculationTestCase(TestCase):
         )
 
         result = calculate_monthly_salary(self.employee.id, 2026, 7)
-        
+
         # July 2026: 31 days. Mon-Fri days = 23 days.
         # Public holidays = 1 (July 3rd).
         # Net standard working days = 22.
@@ -79,6 +86,6 @@ class SalaryCalculationTestCase(TestCase):
         self.assertEqual(result['approved_paid_leave'], 2)
         self.assertEqual(result['unpaid_leave'], 2)
         self.assertEqual(result['payable_days'], 20)
-        
+
         expected_final = round((5000.00 / 22) * 20, 2)
         self.assertEqual(result['final_salary_amount'], expected_final)

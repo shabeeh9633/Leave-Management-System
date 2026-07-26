@@ -9,15 +9,19 @@ User = get_user_model()
 
 class LeaveManagementRuleTests(TestCase):
     def setUp(self):
-        self.employee = User.objects.create_user(
+        self.employee, _ = User.objects.get_or_create(
             username='emp_test',
-            password='password123',
-            role='EMPLOYEE'
+            defaults={
+                'password': 'password123',
+                'role': 'EMPLOYEE'
+            }
         )
-        self.annual_leave = LeaveType.objects.create(
+        self.annual_leave, _ = LeaveType.objects.get_or_create(
             name='Annual Leave',
-            code='annual',
-            is_paid=True
+            defaults={
+                'code': 'annual_leave',
+                'is_paid': True
+            }
         )
 
     def test_example_1_first_request_short_duration(self):
