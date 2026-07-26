@@ -96,7 +96,7 @@ const EmployeeLeaves = () => {
       });
       const applied = response.data;
       setMessage(
-        `Leave request submitted successfully. Duration: ${applied.working_days} working day(s). Current Status: PENDING.`
+        `Leave request submitted successfully. Duration: ${applied.working_days} working day(s). Status: PENDING.`
       );
       setStartDate('');
       setEndDate('');
@@ -244,7 +244,6 @@ const EmployeeLeaves = () => {
                   <th>End Date</th>
                   <th>Working Days</th>
                   <th>Status</th>
-                  <th>Approval Route</th>
                   <th>Reason</th>
                   <th>Applied On</th>
                   <th>Action</th>
@@ -262,12 +261,6 @@ const EmployeeLeaves = () => {
                       <span className={`status-pill status-${l.status.toLowerCase()}`}>
                         {l.status}
                       </span>
-                    </td>
-                    <td>
-                      {l.needs_manager_approval
-                        ? <span className="status-pill status-pending">Manager Review</span>
-                        : <span className="status-pill active">HR Direct</span>
-                      }
                     </td>
                     <td>{l.reason}</td>
                     <td>{new Date(l.applied_at).toLocaleDateString()}</td>
