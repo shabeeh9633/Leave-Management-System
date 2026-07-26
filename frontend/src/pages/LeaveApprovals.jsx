@@ -18,11 +18,10 @@ const LeaveApprovals = () => {
     setLoading(true);
     try {
       const res = await api.get('/leave-requests/');
-      // Backend already filters for Manager, but re-apply on frontend as a safety net
-      const displayLeaves = isManager
-        ? res.data.filter((l) => l.needs_manager_approval === true)
-        : res.data;
-      setLeaves(displayLeaves);
+      // Backend enforces all filtering — display exactly what the API returns.
+      // Manager receives only needs_manager_approval=True & status=PENDING records.
+      // HR receives all records. Employee receives only their own.
+      setLeaves(res.data);
       setError(null);
     } catch (err) {
       setError('Failed to load leave requests.');

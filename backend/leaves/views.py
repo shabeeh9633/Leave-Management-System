@@ -44,10 +44,13 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
             return LeaveRequest.objects.all().order_by('-applied_at')
 
         elif user.role == 'MANAGER':
-            # Manager sees ONLY leave requests that require Manager approval
-            # (Rule 1: > 2 working days; Rule 2: 3rd+ request in calendar month)
+            # Manager sees ONLY leave requests that:
+            #   - require Manager approval (Rule 1 or Rule 2), AND
+            #   - are still in PENDING status (awaiting action)
+            # This is enforced at the database query level, not in the frontend.
             return LeaveRequest.objects.filter(
-                needs_manager_approval=True
+                needs_manager_approval=True,
+                status=LeaveRequest.Status.PENDING
             ).order_by('-applied_at')
 
         # Employee sees only their own leave requests
