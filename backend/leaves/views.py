@@ -93,16 +93,30 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
+        user = request.user
         leave = self.get_object()
 
-        # Only the employee who owns the request can cancel it
-        if leave.employee != request.user:
+        # Permission check:
+        # - Employee can cancel only their own leave
+        # - Manager can cancel PENDING requests that require manager approval (in their queue)
+        # - HR can cancel any PENDING leave request
+        if user.role == 'EMPLOYEE' and leave.employee != user:
             return Response(
-                {'detail': 'Only the employee who submitted this leave can cancel it.'},
+                {'detail': 'You can only cancel your own leave requests.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        elif user.role == 'MANAGER' and not leave.needs_manager_approval:
+            return Response(
+                {'detail': 'Manager can only cancel requests that require Manager approval.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        elif user.role not in ['EMPLOYEE', 'MANAGER', 'HR']:
+            return Response(
+                {'detail': 'You do not have permission to cancel this leave.'},
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # Transition rule: Pending -> Cancelled only
+        # Transition rule: only PENDING requests can be cancelled
         if leave.status != LeaveRequest.Status.PENDING:
             return Response(
                 {'detail': 'Only pending leave requests can be cancelled.'},
