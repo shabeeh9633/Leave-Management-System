@@ -40,20 +40,17 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         if user.role == 'HR':
-            # HR sees ALL leave requests
+            # HR sees ALL leave requests across the system
             return LeaveRequest.objects.all().order_by('-applied_at')
 
         elif user.role == 'MANAGER':
-            # Manager sees ONLY requests that required Manager approval
-            # i.e. requests currently PENDING that satisfy the approval rules.
-            # We filter by status PENDING (these are the ones awaiting manager action)
-            # and only those that are in PENDING state (i.e. required approval).
-            # Already-approved/rejected ones are also shown for reference.
+            # Manager sees ONLY leave requests that require Manager approval
+            # (Rule 1: > 2 working days; Rule 2: 3rd+ request in calendar month)
             return LeaveRequest.objects.filter(
                 needs_manager_approval=True
             ).order_by('-applied_at')
 
-        # Employee sees only their own leaves
+        # Employee sees only their own leave requests
         return LeaveRequest.objects.filter(employee=user).order_by('-applied_at')
 
     def create(self, request, *args, **kwargs):
@@ -100,13 +97,14 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
     def cancel(self, request, pk=None):
         leave = self.get_object()
 
-        # Only the owner employee can cancel their own pending leave
-        if leave.employee != request.user and request.user.role not in ['HR']:
+        # Only the employee who owns the request can cancel it
+        if leave.employee != request.user:
             return Response(
-                {'detail': 'You do not have permission to cancel this leave.'},
+                {'detail': 'Only the employee who submitted this leave can cancel it.'},
                 status=status.HTTP_403_FORBIDDEN
             )
 
+        # Transition rule: Pending -> Cancelled only
         if leave.status != LeaveRequest.Status.PENDING:
             return Response(
                 {'detail': 'Only pending leave requests can be cancelled.'},
@@ -128,22 +126,30 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
 
         leave = self.get_object()
 
-        # Managers can only act on requests that require manager approval
-        if user.role == 'MANAGER' and not leave.needs_manager_approval:
-            return Response(
-                {'detail': 'This leave request does not require Manager approval.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
+        # Cancelled is a terminal state
         if leave.status == LeaveRequest.Status.CANCELLED:
             return Response(
-                {'detail': 'Cannot approve a cancelled leave request.'},
+                {'detail': 'Cannot transition out of terminal state Cancelled.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        if user.role == 'MANAGER' and leave.status != LeaveRequest.Status.PENDING:
+        # Managers can only approve PENDING requests that require manager approval
+        if user.role == 'MANAGER':
+            if not leave.needs_manager_approval:
+                return Response(
+                    {'detail': 'This leave request does not require Manager approval.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            if leave.status != LeaveRequest.Status.PENDING:
+                return Response(
+                    {'detail': 'Manager can only approve pending requests.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # HR override: Pending -> Approved OR Rejected -> Approved
+        if user.role == 'HR' and leave.status not in [LeaveRequest.Status.PENDING, LeaveRequest.Status.REJECTED]:
             return Response(
-                {'detail': 'Manager can only approve pending requests.'},
+                {'detail': f'Cannot approve a request with status {leave.status}.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -164,22 +170,30 @@ class LeaveRequestViewSet(viewsets.ModelViewSet):
 
         leave = self.get_object()
 
-        # Managers can only act on requests that require manager approval
-        if user.role == 'MANAGER' and not leave.needs_manager_approval:
-            return Response(
-                {'detail': 'This leave request does not require Manager approval.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
+        # Cancelled is a terminal state
         if leave.status == LeaveRequest.Status.CANCELLED:
             return Response(
-                {'detail': 'Cannot reject a cancelled leave request.'},
+                {'detail': 'Cannot transition out of terminal state Cancelled.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        if user.role == 'MANAGER' and leave.status != LeaveRequest.Status.PENDING:
+        # Managers can only reject PENDING requests that require manager approval
+        if user.role == 'MANAGER':
+            if not leave.needs_manager_approval:
+                return Response(
+                    {'detail': 'This leave request does not require Manager approval.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            if leave.status != LeaveRequest.Status.PENDING:
+                return Response(
+                    {'detail': 'Manager can only reject pending requests.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # HR override: Pending -> Rejected OR Approved -> Rejected
+        if user.role == 'HR' and leave.status not in [LeaveRequest.Status.PENDING, LeaveRequest.Status.APPROVED]:
             return Response(
-                {'detail': 'Manager can only reject pending requests.'},
+                {'detail': f'Cannot reject a request with status {leave.status}.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 

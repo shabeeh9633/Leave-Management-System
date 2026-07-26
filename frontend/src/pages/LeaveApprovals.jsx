@@ -33,7 +33,7 @@ const LeaveApprovals = () => {
     setError(null);
     try {
       await api.post(`/leave-requests/${id}/approve/`);
-      setMessage('Leave request approved successfully.');
+      setMessage('Leave request approved.');
       await fetchLeaves();
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to approve leave request.');
@@ -52,24 +52,9 @@ const LeaveApprovals = () => {
     }
   };
 
-  const handleCancel = async (id) => {
-    if (!window.confirm('Cancel this leave request?')) return;
-    setMessage(null);
-    setError(null);
-    try {
-      await api.post(`/leave-requests/${id}/cancel/`);
-      setMessage('Leave request cancelled.');
-      await fetchLeaves();
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to cancel leave request.');
-    }
-  };
-
   const isManager = user?.role === 'MANAGER';
   const isHR = user?.role === 'HR';
 
-  // Manager only sees requests requiring manager approval (backend already filters).
-  // HR sees all requests.
   const pendingCount = leaves.filter((l) => l.status === 'PENDING').length;
 
   return (
@@ -112,7 +97,6 @@ const LeaveApprovals = () => {
                 <th>Reason</th>
                 <th>Applied On</th>
                 <th>Status</th>
-                {isHR && <th>Approval Type</th>}
                 <th>Actions</th>
               </tr>
             </thead>
@@ -150,17 +134,9 @@ const LeaveApprovals = () => {
                       </div>
                     )}
                   </td>
-                  {isHR && (
-                    <td>
-                      {l.needs_manager_approval
-                        ? <span className="status-pill status-pending">Manager Review</span>
-                        : <span className="status-pill active">Auto Approved</span>
-                      }
-                    </td>
-                  )}
                   <td>
                     <div className="btn-group">
-                      {/* MANAGER: can only Approve / Reject / Cancel PENDING requests */}
+                      {/* MANAGER: ONLY Approve & Reject for PENDING requests */}
                       {isManager && l.status === 'PENDING' && (
                         <>
                           <button
@@ -175,19 +151,13 @@ const LeaveApprovals = () => {
                           >
                             Reject
                           </button>
-                          <button
-                            onClick={() => handleCancel(l.id)}
-                            className="btn btn-sm btn-secondary"
-                          >
-                            Cancel
-                          </button>
                         </>
                       )}
                       {isManager && l.status !== 'PENDING' && (
                         <span className="text-muted">—</span>
                       )}
 
-                      {/* HR: can Approve / Reject / Cancel any non-cancelled leave (override) */}
+                      {/* HR: Approve / Reject / Override for non-cancelled requests */}
                       {isHR && l.status !== 'CANCELLED' && (
                         <>
                           {l.status !== 'APPROVED' && (
@@ -195,7 +165,7 @@ const LeaveApprovals = () => {
                               onClick={() => handleApprove(l.id)}
                               className="btn btn-sm btn-success"
                             >
-                              {l.status === 'REJECTED' ? 'Override Approve' : 'Approve'}
+                              {l.status === 'REJECTED' ? 'Override (Approve)' : 'Approve'}
                             </button>
                           )}
                           {l.status !== 'REJECTED' && (
@@ -203,21 +173,13 @@ const LeaveApprovals = () => {
                               onClick={() => handleReject(l.id)}
                               className="btn btn-sm btn-danger"
                             >
-                              {l.status === 'APPROVED' ? 'Override Reject' : 'Reject'}
-                            </button>
-                          )}
-                          {l.status === 'PENDING' && (
-                            <button
-                              onClick={() => handleCancel(l.id)}
-                              className="btn btn-sm btn-secondary"
-                            >
-                              Cancel
+                              {l.status === 'APPROVED' ? 'Override (Reject)' : 'Reject'}
                             </button>
                           )}
                         </>
                       )}
                       {isHR && l.status === 'CANCELLED' && (
-                        <span className="text-muted">Cancelled</span>
+                        <span className="text-muted">Cancelled (Terminal)</span>
                       )}
                     </div>
                   </td>
