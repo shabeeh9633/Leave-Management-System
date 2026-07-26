@@ -1,4 +1,5 @@
-from rest_framework import viewsets, status, generics
+from rest_framework import viewsets, status
+from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -35,3 +36,14 @@ class UserManagementViewSet(viewsets.ModelViewSet):
         elif self.action in ['update', 'partial_update']:
             return UserUpdateSerializer
         return UserSerializer
+
+    @action(detail=True, methods=['post'])
+    def toggle_active(self, request, pk=None):
+        user = self.get_object()
+        user.is_active = not user.is_active
+        user.save()
+        return Response({
+            'status': 'success',
+            'is_active': user.is_active,
+            'message': f"User account {'activated' if user.is_active else 'deactivated'} successfully."
+        })
