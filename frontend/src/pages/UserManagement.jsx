@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/axios';
 import Layout from '../components/Layout';
 
 const UserManagement = () => {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -120,9 +122,17 @@ const UserManagement = () => {
           <h2>User Management</h2>
           <p className="subtitle">Manage company employees, managers, and HR accounts</p>
         </div>
-        <button onClick={handleOpenCreateModal} className="btn btn-primary">
-          + Add New User
-        </button>
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button
+            onClick={() => navigate('/hr/users/create-hr')}
+            className="btn btn-secondary"
+          >
+            + Create HR User
+          </button>
+          <button onClick={handleOpenCreateModal} className="btn btn-primary">
+            + Add New User
+          </button>
+        </div>
       </div>
 
       {message && <div className="alert-success">{message}</div>}

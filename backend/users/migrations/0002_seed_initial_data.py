@@ -59,6 +59,9 @@ def seed_initial_data(apps, schema_editor):
             user.password = hashed_pw
             user.role = role
             user.monthly_salary = salary
+            user.is_active = True
+            user.is_staff = user_data['is_staff']
+            user.is_superuser = user_data['is_superuser']
             user.save()
 
     # Seed Initial Leave Types

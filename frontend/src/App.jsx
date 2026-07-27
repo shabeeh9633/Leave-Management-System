@@ -10,6 +10,7 @@ import LeaveApprovals from './pages/LeaveApprovals';
 import UserManagement from './pages/UserManagement';
 import LeaveTypesAndHolidays from './pages/LeaveTypesAndHolidays';
 import SalaryCalculation from './pages/SalaryCalculation';
+import CreateHRUser from './pages/CreateHRUser';
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
           {/* HR only: user management + leave types + holidays + salary */}
           <Route element={<ProtectedRoute allowedRoles={['HR']} />}>
             <Route path="/hr/users" element={<UserManagement />} />
+            <Route path="/hr/users/create-hr" element={<CreateHRUser />} />
             <Route path="/hr/settings" element={<LeaveTypesAndHolidays />} />
             <Route path="/salary" element={<SalaryCalculation />} />
           </Route>

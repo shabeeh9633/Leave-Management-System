@@ -10,14 +10,17 @@ from .serializers import (
     CustomTokenObtainPairSerializer,
     UserSerializer,
     UserCreateSerializer,
-    UserUpdateSerializer
+    UserUpdateSerializer,
+    CreateHRSerializer,
 )
 from .permissions import IsHR
 
 User = get_user_model()
 
+
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+
 
 class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
@@ -25,6 +28,7 @@ class UserProfileView(APIView):
     def get(self, request):
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
+
 
 class UserManagementViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by('-id')
@@ -47,3 +51,26 @@ class UserManagementViewSet(viewsets.ModelViewSet):
             'is_active': user.is_active,
             'message': f"User account {'activated' if user.is_active else 'deactivated'} successfully."
         })
+
+
+class CreateHRUserView(APIView):
+    """
+    POST /api/users/create-hr/
+
+    Creates a new HR user. Only accessible by authenticated HR users.
+    Employees and Managers receive HTTP 403.
+    """
+    permission_classes = [IsHR]
+
+    def post(self, request):
+        serializer = CreateHRSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            return Response(
+                {
+                    'detail': f"HR user '{user.username}' created successfully.",
+                    'user': UserSerializer(user).data,
+                },
+                status=status.HTTP_201_CREATED
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
